@@ -8,15 +8,17 @@ from tqdm import *
 from random import sample
 from utils.frequency import frequency_extraction
 from utils.seasonality import seasonality_extraction
-from utils.sequence import sequence_extraction
+from utils.sequence import sequence_extraction, get_lcs_set
 from utils.surge import surge_extraction
 
 original_data_dir = './data/Prefix/'
 newPrefix_data_dir = './data/newPrefix/'
 split_dataset_dir = './data/splitPrefix'
 feature_data_dir = './data/features/'
+lcs_set_dat = './data/lcs_set.dat'
 workdirs = ["M1", "M2", "M3"]
-seasonality_files = ["0.csv"]
+seasonality_files = ["11.csv", "114.csv", "126.csv", "144.csv"]
+size_of_lcs_set = 18
 
 
 class Dataset:
@@ -38,7 +40,6 @@ class Dataset:
         self.end = end
         self.theta = theta
         self.drop = drop
-
         self.seasonality_features = np.array(pd.DataFrame(columns=range(self.log_templates)))
     
     def load_data(self, mode='train'):
@@ -48,26 +49,26 @@ class Dataset:
         else:
             print("You have extracted features!")
 
-
-        
         print("loading data...")
-        # dataset = pd.DataFrame(columns=['feature_vector', 'label'])
-        # data_file_list = os.listdir(feature_data_dir)
-        # train_data = []
-        # # 合并所有数据集
-        # for data_file in data_file_list:
-        #     features = pd.read_csv(open(feature_data_dir + data_file, 'r+', encoding='utf-8'))
-        #     dataset = dataset.append(features)
-        #
-        # # 去除重复项
-        # dataset = dataset.drop_duplicates(subset=['feature_vector'], keep='first')
 
-        features = []
         dataset = pd.DataFrame(columns=['feature_vector', 'label'])
-        if mode == 'train':
-            dataset = pd.read_csv(open(feature_data_dir + 'train.csv', 'r+', encoding='utf-8'))
-        elif mode == 'test':
-            dataset = pd.read_csv(open(feature_data_dir + 'test.csv', 'r+', encoding='utf-8'))
+        data_file_list = os.listdir(feature_data_dir)
+        features = []
+        # 合并所有数据集
+        for data_file in data_file_list:
+            data = pd.read_csv(open(feature_data_dir + data_file, 'r+', encoding='utf-8'))
+            dataset = dataset.append(data)
+
+        # 去除重复项
+        dataset = dataset.drop_duplicates(subset=['feature_vector'], keep='first')
+
+        # features = []
+        # dataset = pd.DataFrame(columns=['feature_vector', 'label'])
+        # if mode == 'train':
+        #     dataset = pd.read_csv(open(feature_data_dir + 'train.csv', 'r+', encoding='utf-8'))
+        # elif mode == 'test':
+        #     dataset = pd.read_csv(open(feature_data_dir + 'test.csv', 'r+', encoding='utf-8'))
+
 
         dataset['feature_vector'] = dataset['feature_vector'].apply(
             lambda x: list(map(float, x.strip().split())))
@@ -231,8 +232,8 @@ class Dataset:
 
         data_file_list = os.listdir(newPrefix_data_dir)
 
-        # data_file_list = sample(data_file_list, 10) # 数据集太大，随机选取部分数据文件
-        data_file_list = ['25.csv']  # 测试
+        data_file_list = sample(data_file_list, 100) # 数据集太大，随机选取部分数据文件
+        # data_file_list = ['25.csv']  # 测试
 
         dataset = pd.DataFrame(columns=['start_time', 'end_time', 'template_ids', 'timestamps', 'label'])
         # 合并所有数据集
@@ -271,12 +272,16 @@ class Dataset:
         # 划分数据集
         train_data, test_data = self.split_dataset()
 
+        # 如果没有生成lcs_set，生成lcs_set文件
+        if not os.path.exists(lcs_set_dat):
+            get_lcs_set(train_data, lcs_set_dat, size_of_lcs_set)
+
         # 导入LCS set
-        lcs_data = pickle.load(open('./data/lcs_set_M1.dat', 'rb+'))
+        lcs_data = pickle.load(open('./data/lcs_set.dat', 'rb+'))
         lcs_seq = set()
         for seq in lcs_data:
             # 对 lcs set中每个序列长度进行统计分析，4 和 9 分别为 0.25 和 0.75 分位数
-            if 4 <= len(seq.strip().split()) <= 9:
+            if 4 <= len(seq.strip().split()) <= 20:
                 lcs_seq.add(seq)
 
         if not os.path.exists(feature_data_dir):
