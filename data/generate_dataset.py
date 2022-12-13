@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 from sklearn.model_selection import train_test_split
 from tqdm import *
+from random import sample
 from utils.frequency import frequency_extraction
 from utils.seasonality import seasonality_extraction
 from utils.sequence import sequence_extraction
@@ -14,7 +15,7 @@ original_data_dir = './data/Prefix/'
 newPrefix_data_dir = './data/newPrefix/'
 split_dataset_dir = './data/splitPrefix'
 feature_data_dir = './data/features/'
-workdirs = ["M1","M2","M3"]
+workdirs = ["M1", "M2", "M3"]
 seasonality_files = ["0.csv"]
 
 
@@ -221,6 +222,7 @@ class Dataset:
         print("split dataset into train and test...")
 
         data_file_list = os.listdir(newPrefix_data_dir)
+        data_file_list = sample(data_file_list, 1)
         dataset = pd.DataFrame(columns=['start_time', 'end_time', 'template_ids', 'timestamps', 'label'])
         # 合并所有数据集
         for data_file in data_file_list:

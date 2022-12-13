@@ -1,6 +1,7 @@
 from tqdm import *
 import Levenshtein
 
+
 def sequence_extraction(dataset, lcs_set):
     """
     计算LCS2对应的相似度（序列特征）
