@@ -5,7 +5,7 @@ def frequency_extraction(dataset, log_templates):
     """
     计算频率特征
     """
-    print('frequency extraction start')
+    # print('frequency extraction start')
     frequency_features = []
     for _, row in dataset.iterrows():
         frequency_features.append([0] * log_templates)
@@ -14,6 +14,6 @@ def frequency_extraction(dataset, log_templates):
         for template_id, count in counts.items():
             frequency_features[-1][int(template_id)] = count
 
-    print('frequency extraction end')
+    # print('frequency extraction end')
 
     return np.array(frequency_features)

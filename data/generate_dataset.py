@@ -51,26 +51,34 @@ class Dataset:
 
         
         print("loading data...")
-        dataset = pd.DataFrame(columns=['feature_vector', 'label'])
-        data_file_list = os.listdir(feature_data_dir)
-        train_data = []
-        # 合并所有数据集
-        for data_file in data_file_list:
-            features = pd.read_csv(open(feature_data_dir + data_file, 'r+', encoding='utf-8'))
-            dataset = dataset.append(features)
+        # dataset = pd.DataFrame(columns=['feature_vector', 'label'])
+        # data_file_list = os.listdir(feature_data_dir)
+        # train_data = []
+        # # 合并所有数据集
+        # for data_file in data_file_list:
+        #     features = pd.read_csv(open(feature_data_dir + data_file, 'r+', encoding='utf-8'))
+        #     dataset = dataset.append(features)
+        #
+        # # 去除重复项
+        # dataset = dataset.drop_duplicates(subset=['feature_vector'], keep='first')
 
-        # 去除重复项
-        dataset = dataset.drop_duplicates(subset=['feature_vector'], keep='first')
+        features = []
+        dataset = pd.DataFrame(columns=['feature_vector', 'label'])
+        if mode == 'train':
+            dataset = pd.read_csv(open(feature_data_dir + 'train.csv', 'r+', encoding='utf-8'))
+        elif mode == 'test':
+            dataset = pd.read_csv(open(feature_data_dir + 'test.csv', 'r+', encoding='utf-8'))
+
         dataset['feature_vector'] = dataset['feature_vector'].apply(
             lambda x: list(map(float, x.strip().split())))
 
         dataset['label'] = dataset['label'].astype('int64')
         for data in dataset['feature_vector']:
-            train_data.append(data)
+            features.append(data)
         
         print("load data successfully!")
 
-        return np.array(train_data), np.array(dataset['label'])
+        return np.array(features), np.array(dataset['label'])
 
     def generate_datasets(self):
         # for workdir in workdirs:
@@ -222,12 +230,18 @@ class Dataset:
         print("split dataset into train and test...")
 
         data_file_list = os.listdir(newPrefix_data_dir)
-        data_file_list = sample(data_file_list, 1)
+
+        # data_file_list = sample(data_file_list, 10) # 数据集太大，随机选取部分数据文件
+        data_file_list = ['25.csv']  # 测试
+
         dataset = pd.DataFrame(columns=['start_time', 'end_time', 'template_ids', 'timestamps', 'label'])
         # 合并所有数据集
         for data_file in data_file_list:
             features = pd.read_csv(open(newPrefix_data_dir + data_file, 'r+', encoding='utf-8'))
             dataset = dataset.append(features)
+
+        # 去除重复项
+        dataset = dataset.drop_duplicates(subset=['start_time', 'end_time', 'template_ids', 'timestamps'], keep='first')
 
         # 数据集划分
         x_data = dataset.iloc[:, :-1]
@@ -278,8 +292,8 @@ class Dataset:
             surge_feature = surge_extraction(train_data, self.log_templates, self.duration)
 
             # print(frequency_feature.shape, seasonality_feature.shape, sequence_feature.shape, surge_feature.shape)
-            features = np.concatenate((sequence_feature, frequency_feature * self.seasonality_feature,
-                                    surge_feature*self.seasonality_feature), axis=1)
+            features = np.concatenate((sequence_feature, frequency_feature * self.seasonality_features,
+                                    surge_feature*self.seasonality_features), axis=1)
             # print(features.shape)
 
             for feature in features:
@@ -302,8 +316,8 @@ class Dataset:
             surge_feature = surge_extraction(test_data, self.log_templates, self.duration)
 
             # print(frequency_feature.shape, seasonality_feature.shape, sequence_feature.shape, surge_feature.shape)
-            features = np.concatenate((sequence_feature, frequency_feature * self.seasonality_feature,
-                                       surge_feature * self.seasonality_feature), axis=1)
+            features = np.concatenate((sequence_feature, frequency_feature * self.seasonality_features,
+                                       surge_feature * self.seasonality_features), axis=1)
             # print(features.shape)
 
             for feature in features:

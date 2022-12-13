@@ -11,4 +11,4 @@ if __name__ == '__main__':
     warnings.filterwarnings("ignore")
     
     model = Exp_random_forest()
-    model.train()  #当前设定仅对M1数据集做特征提取和训练
+    model.train()  # 当前设定仅对M1数据集做特征提取和训练

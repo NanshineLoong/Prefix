@@ -35,12 +35,9 @@ def surge_extraction(dataset, log_templates,duration):
         surge_feature = np.array(pd.DataFrame(columns=range(60)))
         for seq in time_sequences:
             try:
-                change_score = SingularSpectrumTransformation(win_length=15).score_offline(seq)
+                change_score = SingularSpectrumTransformation(win_length=5, use_lanczos=False).score_offline(seq)
             except Exception:
-                try:
-                    change_score = SingularSpectrumTransformation(win_length=20).score_offline(seq)
-                except Exception:
-                    return None
+                return None
             surge_feature = np.append(surge_feature, change_score.reshape(1, -1), axis=0)
 
         surge_feature = np.max(surge_feature, axis=1).reshape((1, -1))
