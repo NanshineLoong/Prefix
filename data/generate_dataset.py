@@ -1,5 +1,4 @@
 import os
-import sys
 import pandas as pd
 import numpy as np
 import pickle
@@ -17,12 +16,12 @@ split_dataset_dir = './data/splitPrefix'
 feature_data_dir = './data/features/'
 lcs_set_dat = './data/lcs_set.dat'
 workdirs = ["M1", "M2", "M3"]
-seasonality_files = ["11.csv", "114.csv", "126.csv", "144.csv"]
-size_of_lcs_set = 18
+seasonality_files = ["13.csv", "20.csv", "99.csv"]  # "13.csv", "20.csv", "99.csv"
+size_of_lcs_set = 4
 
 
 class Dataset:
-    def __init__(self, log_templates=165, time_bin=900, duration=120, length=2*60*60, begin=30*60+2*60*60, end=24 * 60 * 60 + 30 * 60+2*60*60, theta=5, drop=True):  # 此处269是M1数据集中template的数量，使用其他数据集需要修改
+    def __init__(self, log_templates=165, time_bin=900, duration=120, length=2*60*60, begin=30*60+2*60*60, end=24 * 60 * 60 + 30 * 60+2*60*60, theta=5, drop=True):
         """
         :param log_templates: template的数量
         :param time bin: time bin间隔时长
@@ -50,25 +49,23 @@ class Dataset:
             print("You have extracted features!")
 
         print("loading data...")
-
-        dataset = pd.DataFrame(columns=['feature_vector', 'label'])
-        data_file_list = os.listdir(feature_data_dir)
-        features = []
-        # 合并所有数据集
-        for data_file in data_file_list:
-            data = pd.read_csv(open(feature_data_dir + data_file, 'r+', encoding='utf-8'))
-            dataset = dataset.append(data)
-
-        # 去除重复项
-        dataset = dataset.drop_duplicates(subset=['feature_vector'], keep='first')
-
-        # features = []
         # dataset = pd.DataFrame(columns=['feature_vector', 'label'])
-        # if mode == 'train':
-        #     dataset = pd.read_csv(open(feature_data_dir + 'train.csv', 'r+', encoding='utf-8'))
-        # elif mode == 'test':
-        #     dataset = pd.read_csv(open(feature_data_dir + 'test.csv', 'r+', encoding='utf-8'))
+        # data_file_list = os.listdir(feature_data_dir)
+        # features = []
+        # # 合并所有数据集
+        # for data_file in data_file_list:
+        #     data = pd.read_csv(open(feature_data_dir + data_file, 'r+', encoding='utf-8'))
+        #     dataset = dataset.append(data)
+        #
+        # # 去除重复项
+        # dataset = dataset.drop_duplicates(subset=['feature_vector'], keep='first')
 
+        features = []
+        dataset = pd.DataFrame(columns=['feature_vector', 'label'])
+        if mode == 'train':
+            dataset = pd.read_csv(open(feature_data_dir + 'train.csv', 'r+', encoding='utf-8'))
+        elif mode == 'test':
+            dataset = pd.read_csv(open(feature_data_dir + 'test.csv', 'r+', encoding='utf-8'))
 
         dataset['feature_vector'] = dataset['feature_vector'].apply(
             lambda x: list(map(float, x.strip().split())))
@@ -202,23 +199,15 @@ class Dataset:
             log_sequences.to_csv(os.path.join(CPATH, pre + '.csv'), index=False)
 
     def pre_feature_extraction(self):
-        # if not os.path.exists(newPrefix_data_dir):
-        #     self.generate_datasets()
-        # else:
-        #     print("You have generated datasets!")
+        print("pre extract seasonality features...")
 
-        print("pre extract features...")
-
-        # data_file_list = os.listdir(newPrefix_data_dir)
-        print("extract seasonality features...")
-
-        for data_file in tqdm(seasonality_files):
+        for data_file in seasonality_files:
             file_path = os.path.join(newPrefix_data_dir, data_file)
             log_sequence_data = pd.read_csv(open(file_path, 'r+', encoding='utf-8'))
 
             frequency_feature = frequency_extraction(log_sequence_data, self.log_templates)
             seasonality_feature = seasonality_extraction(log_sequence_data, frequency_feature, self.log_templates,
-                                                         self.time_bin).reshape((1, -1))
+                                                         self.time_bin, data_file).reshape((1, -1))
             self.seasonality_features = np.append(self.seasonality_features, seasonality_feature, axis=0)
 
         self.seasonality_features = np.min(self.seasonality_features, axis=0).astype(float)
@@ -226,13 +215,11 @@ class Dataset:
         self.seasonality_features[np.isinf(self.seasonality_features)] = -np.inf
         self.seasonality_features[np.isinf(self.seasonality_features)] = np.max(self.seasonality_features)
 
-
     def split_dataset(self):
         print("split dataset into train and test...")
 
         data_file_list = os.listdir(newPrefix_data_dir)
-
-        data_file_list = sample(data_file_list, 100) # 数据集太大，随机选取部分数据文件
+        data_file_list = sample(data_file_list, 45)  # 数据集太大，随机选取部分数据文件
         # data_file_list = ['25.csv']  # 测试
 
         dataset = pd.DataFrame(columns=['start_time', 'end_time', 'template_ids', 'timestamps', 'label'])
@@ -256,9 +243,27 @@ class Dataset:
 
         return x_train, x_test
 
-        # x_train.to_csv(split_dataset_dir + "train_data" + '.csv', index=False)
-        # x_test.to_csv(split_dataset_dir + "test_data" + '.csv', index=False)
+    def extract_data(self, data, lcs_seq):
+        feature_data = pd.DataFrame(columns=['feature_vector', 'label'])
+        feature_vectors, labels = [], []
 
+        frequency_feature = frequency_extraction(data, self.log_templates)
+        sequence_feature = sequence_extraction(data, lcs_seq)
+        surge_feature = surge_extraction(data, self.log_templates, self.length, self.duration)
+
+        # print(frequency_feature.shape, seasonality_feature.shape, sequence_feature.shape, surge_feature.shape)
+        features = np.concatenate((sequence_feature, frequency_feature * self.seasonality_features,
+                                   surge_feature * self.seasonality_features), axis=1)
+        # print(features.shape)
+
+        for feature in features:
+            feature_vectors.append(' '.join(list(map(str, list(feature)))))
+
+        labels.extend(list(data['label']))
+
+        feature_data['feature_vector'] = feature_vectors
+        feature_data['label'] = labels
+        return feature_data
 
     def feature_extraction(self):
         if not os.path.exists(newPrefix_data_dir):
@@ -277,98 +282,16 @@ class Dataset:
             get_lcs_set(train_data, lcs_set_dat, size_of_lcs_set)
 
         # 导入LCS set
-        lcs_data = pickle.load(open('./data/lcs_set.dat', 'rb+'))
-        lcs_seq = set()
-        for seq in lcs_data:
-            # 对 lcs set中每个序列长度进行统计分析，4 和 9 分别为 0.25 和 0.75 分位数
-            if 4 <= len(seq.strip().split()) <= 20:
-                lcs_seq.add(seq)
+        lcs_data = pickle.load(open(lcs_set_dat, 'rb+'))
+        lcs_seq = set(lcs_data)
 
         if not os.path.exists(feature_data_dir):
             os.makedirs(feature_data_dir)
 
         print("extracting features of training data...")
-        if True:
-            feature_data = pd.DataFrame(columns=['feature_vector', 'label'])
-            feature_vectors, labels = [], []
-
-            frequency_feature = frequency_extraction(train_data, self.log_templates)
-            sequence_feature = sequence_extraction(train_data, lcs_seq)
-            surge_feature = surge_extraction(train_data, self.log_templates, self.duration)
-
-            # print(frequency_feature.shape, seasonality_feature.shape, sequence_feature.shape, surge_feature.shape)
-            features = np.concatenate((sequence_feature, frequency_feature * self.seasonality_features,
-                                    surge_feature*self.seasonality_features), axis=1)
-            # print(features.shape)
-
-            for feature in features:
-                feature_vectors.append(' '.join(list(map(str, list(feature)))))
-
-            labels.extend(list(train_data['label']))
-
-            feature_data['feature_vector'] = feature_vectors
-            feature_data['label'] = labels
-
-            feature_data.to_csv(feature_data_dir + 'train.csv', index=False)
+        train_features = self.extract_data(train_data, lcs_seq)
+        train_features.to_csv(feature_data_dir + 'train.csv', index=False)
 
         print("extracting features of testing data...")
-        if True:
-            feature_data = pd.DataFrame(columns=['feature_vector', 'label'])
-            feature_vectors, labels = [], []
-
-            frequency_feature = frequency_extraction(test_data, self.log_templates)
-            sequence_feature = sequence_extraction(test_data, lcs_seq)
-            surge_feature = surge_extraction(test_data, self.log_templates, self.duration)
-
-            # print(frequency_feature.shape, seasonality_feature.shape, sequence_feature.shape, surge_feature.shape)
-            features = np.concatenate((sequence_feature, frequency_feature * self.seasonality_features,
-                                       surge_feature * self.seasonality_features), axis=1)
-            # print(features.shape)
-
-            for feature in features:
-                feature_vectors.append(' '.join(list(map(str, list(feature)))))
-
-            labels.extend(list(test_data['label']))
-
-            feature_data['feature_vector'] = feature_vectors
-            feature_data['label'] = labels
-
-            feature_data.to_csv(feature_data_dir + 'test.csv', index=False)
-
-
-        # data_file_list = os.listdir(newPrefix_data_dir)
-        # output_file_list = os.listdir(feature_data_dir)
-        #
-        # for data_file in data_file_list:
-        #     # 时间太长，这里方便中断后继续进行
-        #     if data_file in output_file_list:
-        #         continue
-        #     print("Processing data file:", data_file)
-        #     feature_data = pd.DataFrame(columns=['feature_vector', 'label'])
-        #     feature_vectors, labels = [], []
-        #     file_index = data_file.strip().split('.')[0]
-        #     file_path = os.path.join(newPrefix_data_dir, data_file)
-        #     log_sequence_data = pd.read_csv(open(file_path, 'r+', encoding='utf-8'))
-        #
-        #     frequency_feature = frequency_extraction(log_sequence_data, self.log_templates)
-        #     seasonality_feature = seasonality_extraction(log_sequence_data, frequency_feature,self.log_templates, self.time_bin)
-        #     sequence_feature = sequence_extraction(log_sequence_data, lcs_seq)
-        #     surge_feature = surge_extraction(log_sequence_data, self.log_templates, self.duration)
-        #
-        #     if surge_feature is None:
-        #         continue
-        #
-        #     # print(frequency_feature.shape, seasonality_feature.shape, sequence_feature.shape, surge_feature.shape)
-        #     features = np.concatenate((sequence_feature, frequency_feature * seasonality_feature,
-        #                             surge_feature * seasonality_feature), axis=1)
-        #     print(features.shape)
-        #
-        #     for feature in features:
-        #         feature_vectors.append(' '.join(list(map(str, list(feature)))))
-        #
-        #     labels.extend(list(log_sequence_data['label']))
-        #
-        #     feature_data['feature_vector'] = feature_vectors
-        #     feature_data['label'] = labels
-        #
-        #     feature_data.to_csv(feature_data_dir + file_index + '.csv', index=False)
+        test_features = self.extract_data(test_data, lcs_seq)
+        test_features.to_csv(feature_data_dir + 'test.csv', index=False)

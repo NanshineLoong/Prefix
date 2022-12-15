@@ -1,13 +1,15 @@
 import numpy as np
 import pandas as pd
+import pickle
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score, recall_score, f1_score
-import os
 from sklearn.model_selection import GridSearchCV
 from data.generate_dataset import Dataset
+
+model_path = "./checkpoint/rfc.pkl"
 
 class Exp_random_forest:
     def __init__(self):
@@ -47,13 +49,27 @@ class Exp_random_forest:
         p = precision_score(y_test, pred)
         r = recall_score(y_test, pred)
         f1 = f1_score(y_test, pred)
-
         print(p, r, f1)
 
+        pickle.dump(rfc, open(model_path, 'wb'))
+        print("------------------------------")
         # 计算混淆矩阵
         # confusion_matrix(y_test, pred)
         # print("confusion matrixs:", confusion_matrix)
 
     def test(self):
         x_test, y_test = self.load_dataset(mode='test')
+        rfc = pickle.load(open(model_path, 'rb'))
+        print("------------------------------")
+        print("testing...")
+        pred = rfc.predict(x_test)
+        acc = accuracy_score(y_test, pred)
+        print(acc)
+
+        p = precision_score(y_test, pred)
+        r = recall_score(y_test, pred)
+        f1 = f1_score(y_test, pred)
+        print(p, r, f1)
+        print("------------------------------")
+
 

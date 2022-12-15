@@ -1,6 +1,6 @@
 import numpy as np
-from tqdm import *
 import pandas as pd
+from tqdm import tqdm
 
 
 def cal_period_difference(dataset, frequency_features, period_time, log_templates, time_bin):
@@ -30,14 +30,14 @@ def cal_period_difference(dataset, frequency_features, period_time, log_template
     return period_difference
 
 
-def seasonality_extraction(dataset, frequency_features, log_templates, time_bin):
+def seasonality_extraction(dataset, frequency_features, log_templates, time_bin, data_file):
     """
     计算周期特征
     """
-    # print('seasonality extraction start')
+    print("pre extracting seasonality features...")
     candidate_periods = [4, 96, 672, 2880]
     differences = []
-    for i in range(candidate_periods[-1]):
+    for i in tqdm(range(candidate_periods[-1]), desc=f"processing :{data_file}"):
         period_difference = cal_period_difference(dataset, frequency_features, i + 1, log_templates, time_bin)
         if len(differences) == 0:
             differences.append(period_difference)
@@ -53,7 +53,5 @@ def seasonality_extraction(dataset, frequency_features, log_templates, time_bin)
                                                         where=diff_avg != 0).reshape((1, -1)), axis=0)
 
     seasonality_feature = np.min(candidate_difference, axis=0)
-
-    # print('seasonality extraction end')
 
     return seasonality_feature.reshape(1, -1)
